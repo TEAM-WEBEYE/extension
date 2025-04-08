@@ -1,24 +1,37 @@
 {
     "manifest_version": 3,
-    "name": "Chrome Extension Starter",
-    "description": "A Chrome Extension starter kit",
+    "name": "Chrome Extension",
     "version": "1.0.0",
+    "description": "Chrome Extension with React",
+    "side_panel": {
+        "default_path": "sidepanel.html"
+    },
     "action": {
-        "default_icon": {
-            "16": "icon-16.png",
-            "48": "icon-48.png",
-            "128": "icon-128.png"
-        },
-        "default_popup": "popup.html"
+        "default_title": "Click to open panel"
     },
     "background": {
         "service_worker": "js/backgroundPage.js"
     },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["js/content.js"],
+            "css": ["styles/magnifier.css"],
+            "run_at": "document_idle"
+        }
+    ],
     "icons": {
-        "16": "icon-16.png",
-        "48": "icon-48.png",
-        "128": "icon-128.png"
+        "16": "icons/icon-16.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
     },
-    "host_permissions": ["https://*/*"],
-    "permissions": ["tabs", "activeTab", "notifications", "scripting"]
+    "host_permissions": ["<all_urls>"],
+    "permissions": [
+        "scripting",
+        "activeTab",
+        "storage",
+        "tabs",
+        "sidePanel",
+        "desktopCapture"
+    ]
 }

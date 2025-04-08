@@ -6,7 +6,9 @@ module.exports = {
     plugins: [new ReactRefreshWebpackPlugin()],
     entry: {
         backgroundPage: path.join(__dirname, "src/backgroundPage.ts"),
+        content: path.join(__dirname, "src/content/content.tsx"),
         popup: path.join(__dirname, "src/popup/index.tsx"),
+        sidepanel: path.join(__dirname, "src/sidepanel/index.tsx"),
     },
     output: {
         path: path.join(__dirname, "dist/js"),
@@ -17,7 +19,14 @@ module.exports = {
             {
                 exclude: /node_modules/,
                 test: /\.tsx?$/,
-                use: "ts-loader",
+                use: {
+                    loader: "ts-loader",
+                    options: {
+                        compilerOptions: {
+                            jsx: "react",
+                        },
+                    },
+                },
             },
             // Treat src/css/app.css as a global stylesheet
             {
