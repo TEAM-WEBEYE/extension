@@ -105,7 +105,9 @@ const Magnifier: React.FC<MagnifierProps> = ({
             }`}
             style={{
                 backgroundImage: imageUrl ? `url(${imageUrl})` : "none",
-                backgroundSize: `${window.innerWidth}px ${window.innerHeight}px`,
+                backgroundSize: `${window.innerWidth * zoom}px ${
+                    window.innerHeight * zoom
+                }px`,
                 imageRendering: aa ? "auto" : "pixelated",
                 width: `${size}px`,
                 height: `${size}px`,

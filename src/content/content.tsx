@@ -44,7 +44,10 @@ chrome.runtime.onMessage.addListener(
                 root.render(
                     <Magnifier
                         imageUrl={message.screenshotUrl || ""}
-                        zoom={message.settings.magnifierStrength}
+                        zoom={
+                            message.settings.magnifierStrength *
+                            (message.settings.osFactor / 100)
+                        }
                         size={message.settings.magnifierSize}
                         shape={
                             message.settings.magnifierShape === "circle"

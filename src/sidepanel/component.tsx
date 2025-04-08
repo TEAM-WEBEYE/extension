@@ -333,7 +333,7 @@ export const SidePanel: React.FC = () => {
         return new Promise((resolve, reject) => {
             chrome.tabs.captureVisibleTab(
                 windowId,
-                { format: "jpeg", quality: 100 },
+                { format: "png" },
                 (screenshotUrl) => {
                     if (chrome.runtime.lastError) {
                         console.error(

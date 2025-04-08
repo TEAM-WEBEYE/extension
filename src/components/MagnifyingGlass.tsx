@@ -27,21 +27,31 @@ const MagnifyingGlass: React.FC<MagnifyingGlassProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
 
     const [visible, setVisible] = useState(false);
+    const [bgPosition, setBgPosition] = useState("0px 0px");
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
     const zoom = pageZoom * (osCompensation / 100);
     const scaledSize = magnifierSize / zoom;
     const sizeStyle = `${scaledSize / magnifierStrength}px`;
     const boxShadow = `
-    0 0 0 ${7 / magnifierStrength}px rgba(255, 255, 255, 0.85),
-    0 0 ${7 / magnifierStrength}px ${
+        0 0 0 ${7 / magnifierStrength}px rgba(255, 255, 255, 0.85),
+        0 0 ${7 / magnifierStrength}px ${
         7 / magnifierStrength
     }px rgba(0, 0, 0, 0.25),
-    inset 0 0 ${40 / magnifierStrength}px ${
+        inset 0 0 ${40 / magnifierStrength}px ${
         2 / magnifierStrength
     }px rgba(0, 0, 0, 0.25)
-  `;
+    `;
 
     useEffect(() => {
+        const container = containerRef.current;
+        if (container) {
+            setContainerSize({
+                width: container.offsetWidth,
+                height: container.offsetHeight,
+            });
+        }
+
         const handleMouseMove = (e: MouseEvent) => {
             const container = containerRef.current;
             const magnifier = magnifierRef.current;
@@ -67,7 +77,8 @@ const MagnifyingGlass: React.FC<MagnifyingGlassProps> = ({
                     -1 * (clientX - magnifier.offsetWidth / 2) * zoom;
                 const yOffset =
                     -1 * (clientY - magnifier.offsetHeight / 2) * zoom;
-                const bgPosition = `${xOffset}px ${yOffset}px`;
+
+                setBgPosition(`${xOffset}px ${yOffset}px`);
 
                 magnifier.style.left = `${
                     clientX - magnifier.offsetWidth / 2
@@ -75,7 +86,6 @@ const MagnifyingGlass: React.FC<MagnifyingGlassProps> = ({
                 magnifier.style.top = `${
                     clientY - magnifier.offsetHeight / 2
                 }px`;
-                magnifier.style.backgroundPosition = bgPosition;
             }
         };
 
@@ -109,10 +119,15 @@ const MagnifyingGlass: React.FC<MagnifyingGlassProps> = ({
             <div
                 ref={magnifierRef}
                 tabIndex={0}
-                className="absolute pointer-events-none bg-no-repeat bg-cover"
+                className="absolute pointer-events-none"
                 style={{
                     display: visible ? "block" : "none",
                     backgroundImage: `url(${snapshotUrl})`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: `${containerSize.width * zoom}px ${
+                        containerSize.height * zoom
+                    }px`,
+                    backgroundPosition: bgPosition,
                     width: sizeStyle,
                     height: sizeStyle,
                     transform: `scale(${magnifierStrength})`,
