@@ -11,6 +11,12 @@
         },
         "default_popup": "popup.html"
     },
+    "content_scripts": [
+        {
+            "matches": ["https://*/*"],
+            "js": ["js/contentScript.js"]
+        }
+    ],
     "background": {
         "service_worker": "js/backgroundPage.js"
     },
