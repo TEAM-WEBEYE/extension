@@ -2,29 +2,39 @@ import React, { useState } from "react";
 import "../css/app.css";
 
 const Component = () => {
-    const [text, setText] = useState("");
+    const [pageText, setPageText] = useState("");
 
-    const handleSpeak = () => {
-        if (!text.trim()) return;
+    const getTextAndSpeak = () => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs[0]?.id) return;
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "ko-KR";
-        speechSynthesis.speak(utterance);
+            chrome.tabs.sendMessage(
+                tabs[0].id,
+                { type: "GET_PAGE_TEXT" },
+                (response) => {
+                    if (response?.text) {
+                        setPageText(response.text);
+
+                        const utterance = new SpeechSynthesisUtterance(
+                            response.text,
+                        );
+                        utterance.lang = "ko-KR";
+                        speechSynthesis.speak(utterance);
+                    } else {
+                        alert("페이지의 텍스트를 가져오지 못했어요.");
+                    }
+                },
+            );
+        });
     };
 
     return (
         <div className="w-64 p-4 bg-white rounded-lg shadow-lg">
             <h1 className="text-xl font-semibold mb-2 text-gray-800">
-                VOIM TTS
+                VOIM tts test
             </h1>
-            <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="텍스트를 입력하세요"
-                className="w-full h-24 p-2 border border-gray-300 rounded resize-none text-sm"
-            />
             <button
-                onClick={handleSpeak}
+                onClick={getTextAndSpeak}
                 className="w-full mt-2 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm"
             >
                 읽어줘!
