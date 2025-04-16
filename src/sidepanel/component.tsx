@@ -1,12 +1,9 @@
 /** @jsxImportSource @emotion/react */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { Hello } from "@src/components/hello";
-import browser, { Tabs } from "webextension-polyfill";
 import { Scroller } from "@src/components/scroller";
-import Options from "@src/components/Option";
 
-// Scripts to execute in current tab
 const scrollToTopPosition = 0;
 const scrollToBottomPosition = 9999999;
 
@@ -15,23 +12,154 @@ function scrollWindow(position: number) {
 }
 
 function executeScript(position: number): void {
-    browser.tabs
-        .query({ active: true, currentWindow: true })
-        .then((tabs: Tabs.Tab[]) => {
-            const currentTab = tabs[0];
-            if (!currentTab) return;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const currentTab = tabs[0];
+        if (!currentTab?.id) return;
 
-            const currentTabId = currentTab.id as number;
-            browser.scripting
-                .executeScript({
-                    target: { tabId: currentTabId },
-                    func: scrollWindow,
-                    args: [position],
-                })
-                .then(() => {
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: currentTab.id },
+                func: scrollWindow,
+                args: [position],
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "Script execution failed:",
+                        chrome.runtime.lastError.message,
+                    );
+                } else {
                     console.log("Done Scrolling");
-                });
-        });
+                }
+            },
+        );
+    });
+}
+
+function executeFontWeightScript(weight: number): void {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const currentTab = tabs[0];
+        if (!currentTab?.id) return;
+
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: currentTab.id },
+                func: (fontWeight: number) => {
+                    const allElements = document.querySelectorAll("*");
+                    allElements.forEach((el) => {
+                        // 텍스트 노드가 있는 엘리먼트에만 적용
+                        if (el.childNodes.length > 0) {
+                            el.childNodes.forEach((node) => {
+                                if (
+                                    node.nodeType === Node.TEXT_NODE &&
+                                    node.textContent?.trim()
+                                ) {
+                                    (el as HTMLElement).style.setProperty(
+                                        "font-weight",
+                                        fontWeight.toString(),
+                                        "important",
+                                    );
+                                }
+                            });
+                        }
+                    });
+
+                    // input, textarea, select 요소에 font-weight 적용
+                    const formElements = document.querySelectorAll(
+                        "input, textarea, select, h1",
+                    );
+                    formElements.forEach((el) => {
+                        (el as HTMLElement).style.setProperty(
+                            "font-weight",
+                            fontWeight.toString(),
+                            "important",
+                        );
+                    });
+                },
+                args: [weight],
+            },
+
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "Script execution failed:",
+                        chrome.runtime.lastError.message,
+                    );
+                } else {
+                    console.log("Font weight changed to", weight);
+                }
+            },
+        );
+    });
+}
+
+function executeFontScript(fontUrl: string, fontName: string): void {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const currentTab = tabs[0];
+        if (!currentTab?.id) return;
+
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: currentTab.id },
+                func: (url: string, name: string) => {
+                    // @font-face로 글씨체 로드
+                    const style = document.createElement("style");
+                    style.innerHTML = `
+                        @font-face {
+                            font-family: '${name}';
+                            src: url('${url}') format('woff2');
+                            font-weight: normal;
+                            font-style: normal;
+                        }
+                    `;
+                    document.head.appendChild(style);
+
+                    // 모든 텍스트 노드에 글씨체 적용
+                    const allElements = document.querySelectorAll("*");
+                    allElements.forEach((el) => {
+                        // 텍스트 노드가 있는 엘리먼트에만 적용
+                        if (el.childNodes.length > 0) {
+                            el.childNodes.forEach((node) => {
+                                if (
+                                    node.nodeType === Node.TEXT_NODE &&
+                                    node.textContent?.trim()
+                                ) {
+                                    (el as HTMLElement).style.setProperty(
+                                        "font-family",
+                                        name,
+                                        "important",
+                                    );
+                                }
+                            });
+                        }
+                    });
+
+                    // input, textarea, select 요소에도 글씨체 적용
+                    const formElements = document.querySelectorAll(
+                        "input, textarea, select",
+                    );
+                    formElements.forEach((el) => {
+                        (el as HTMLElement).style.setProperty(
+                            "font-family",
+                            name,
+                            "important",
+                        );
+                    });
+                },
+                args: [fontUrl, fontName],
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "Script execution failed:",
+                        chrome.runtime.lastError.message,
+                    );
+                } else {
+                    console.log(`Font changed to ${fontName}`);
+                }
+            },
+        );
+    });
 }
 
 // ---------- Styled Components ----------
@@ -63,294 +191,47 @@ const Card = styled.div`
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
 
-const Button = styled.button`
-    padding: 8px 16px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    &:hover {
-        background-color: #0056b3;
-    }
+const RangeLabel = styled.label`
+    display: block;
+    font-size: 14px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    color: #333;
+`;
+
+const RangeInput = styled.input`
+    width: 100%;
 `;
 
 export const SidePanel: React.FC = () => {
-    const [isMagnifierActive, setIsMagnifierActive] = useState(false);
+    const [fontWeight, setFontWeight] = useState<number>(400);
+    const [fontFamily, setFontFamily] = useState<string>("Arial");
 
-    React.useEffect(() => {
-        if (browser && browser.runtime) {
-            browser.runtime
-                .sendMessage({ type: "sidePanelMounted" })
-                .catch((err) => {
-                    console.error("Failed to send message to background:", err);
-                });
-        }
+    useEffect(() => {
+        chrome.runtime.sendMessage({ type: "sidePanelMounted" }, () => {
+            if (chrome.runtime.lastError) {
+                console.error(
+                    "Failed to send message to background:",
+                    chrome.runtime.lastError.message,
+                );
+            }
+        });
     }, []);
 
-    const toggleMagnifier = async () => {
-        try {
-            console.log(
-                "Toggling magnifier, current state:",
-                isMagnifierActive,
-            );
-
-            // 현재 활성화된 탭 가져오기
-            const tabs = await chrome.tabs.query({
-                active: true,
-                currentWindow: true,
-            });
-            const currentTab = tabs[0];
-
-            if (!currentTab?.id) {
-                console.error("No active tab found");
-                return;
-            }
-
-            console.log("Active tab:", currentTab.id);
-
-            // 설정 가져오기
-            const settings = await chrome.storage.sync.get({
-                magnifierStrength: 2,
-                magnifierSize: 150,
-                magnifierShape: 100,
-                magnifierAA: true,
-                magnifierCM: false,
-                osFactor: 100,
-                escLimit: false,
-            });
-
-            console.log("Current settings:", settings);
-
-            // magnifierShape 값을 숫자에서 문자열로 변환
-            const magnifierShapeValue =
-                settings.magnifierShape >= 50 ? "circle" : "square";
-            console.log("Converted magnifierShape:", magnifierShapeValue);
-
-            // 탭의 상태 확인
-            const tabInfo = await chrome.tabs.get(currentTab.id);
-            console.log("Tab status:", tabInfo.status);
-
-            if (tabInfo.status === "complete") {
-                if (!isMagnifierActive) {
-                    // 돋보기 활성화
-                    console.log("Sending ACTIVATE_MAGNIFIER message");
-                    try {
-                        // 스크린샷 캡처
-                        const screenshotUrl = await captureVisibleTab(
-                            currentTab.windowId,
-                        );
-
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "ACTIVATE_MAGNIFIER",
-                            settings: {
-                                magnifierStrength: settings.magnifierStrength,
-                                magnifierSize: settings.magnifierSize,
-                                magnifierShape: magnifierShapeValue,
-                                magnifierAA: settings.magnifierAA,
-                                magnifierCM: settings.magnifierCM,
-                                osFactor: settings.osFactor,
-                                escLimit: settings.escLimit,
-                            },
-                            screenshotUrl: screenshotUrl,
-                        });
-                        console.log(
-                            "ACTIVATE_MAGNIFIER message sent successfully",
-                        );
-                        setIsMagnifierActive(true);
-                    } catch (error) {
-                        console.error(
-                            "Error sending ACTIVATE_MAGNIFIER message:",
-                            error,
-                        );
-                        // 콘텐츠 스크립트가 로드되지 않았을 수 있으므로 다시 시도
-                        await injectContentScript(currentTab.id);
-
-                        // 스크린샷 캡처
-                        const screenshotUrl = await captureVisibleTab(
-                            currentTab.windowId,
-                        );
-
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "ACTIVATE_MAGNIFIER",
-                            settings: {
-                                magnifierStrength: settings.magnifierStrength,
-                                magnifierSize: settings.magnifierSize,
-                                magnifierShape: magnifierShapeValue,
-                                magnifierAA: settings.magnifierAA,
-                                magnifierCM: settings.magnifierCM,
-                                osFactor: settings.osFactor,
-                                escLimit: settings.escLimit,
-                            },
-                            screenshotUrl: screenshotUrl,
-                        });
-                        setIsMagnifierActive(true);
-                    }
-                } else {
-                    // 돋보기 비활성화
-                    console.log("Sending DEACTIVATE_MAGNIFIER message");
-                    try {
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "DEACTIVATE_MAGNIFIER",
-                        });
-                        console.log(
-                            "DEACTIVATE_MAGNIFIER message sent successfully",
-                        );
-                        setIsMagnifierActive(false);
-                    } catch (error) {
-                        console.error(
-                            "Error sending DEACTIVATE_MAGNIFIER message:",
-                            error,
-                        );
-                        // 콘텐츠 스크립트가 로드되지 않았을 수 있으므로 다시 시도
-                        await injectContentScript(currentTab.id);
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "DEACTIVATE_MAGNIFIER",
-                        });
-                        setIsMagnifierActive(false);
-                    }
-                }
-            } else {
-                // 탭이 아직 로드되지 않은 경우, 로드될 때까지 대기
-                console.log("Tab not complete, waiting for load");
-                await new Promise<void>((resolve) => {
-                    const listener = (
-                        tabId: number,
-                        changeInfo: chrome.tabs.TabChangeInfo,
-                    ) => {
-                        if (
-                            tabId === currentTab.id &&
-                            changeInfo.status === "complete"
-                        ) {
-                            chrome.tabs.onUpdated.removeListener(listener);
-                            resolve();
-                        }
-                    };
-                    chrome.tabs.onUpdated.addListener(listener);
-                });
-
-                console.log("Tab loaded, sending message");
-                // 탭이 로드된 후 메시지 전송
-                if (!isMagnifierActive) {
-                    try {
-                        // 스크린샷 캡처
-                        const screenshotUrl = await captureVisibleTab(
-                            currentTab.windowId,
-                        );
-
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "ACTIVATE_MAGNIFIER",
-                            settings: {
-                                magnifierStrength: settings.magnifierStrength,
-                                magnifierSize: settings.magnifierSize,
-                                magnifierShape: magnifierShapeValue,
-                                magnifierAA: settings.magnifierAA,
-                                magnifierCM: settings.magnifierCM,
-                                osFactor: settings.osFactor,
-                                escLimit: settings.escLimit,
-                            },
-                            screenshotUrl: screenshotUrl,
-                        });
-                        setIsMagnifierActive(true);
-                    } catch (error) {
-                        console.error(
-                            "Error sending ACTIVATE_MAGNIFIER message after tab load:",
-                            error,
-                        );
-                        await injectContentScript(currentTab.id);
-
-                        // 스크린샷 캡처
-                        const screenshotUrl = await captureVisibleTab(
-                            currentTab.windowId,
-                        );
-
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "ACTIVATE_MAGNIFIER",
-                            settings: {
-                                magnifierStrength: settings.magnifierStrength,
-                                magnifierSize: settings.magnifierSize,
-                                magnifierShape: magnifierShapeValue,
-                                magnifierAA: settings.magnifierAA,
-                                magnifierCM: settings.magnifierCM,
-                                osFactor: settings.osFactor,
-                                escLimit: settings.escLimit,
-                            },
-                            screenshotUrl: screenshotUrl,
-                        });
-                        setIsMagnifierActive(true);
-                    }
-                } else {
-                    try {
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "DEACTIVATE_MAGNIFIER",
-                        });
-                        setIsMagnifierActive(false);
-                    } catch (error) {
-                        console.error(
-                            "Error sending DEACTIVATE_MAGNIFIER message after tab load:",
-                            error,
-                        );
-                        await injectContentScript(currentTab.id);
-                        await chrome.tabs.sendMessage(currentTab.id, {
-                            type: "DEACTIVATE_MAGNIFIER",
-                        });
-                        setIsMagnifierActive(false);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error("Failed to toggle magnifier:", error);
-        }
+    const handleFontWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = Number(e.target.value);
+        setFontWeight(value);
+        executeFontWeightScript(value);
     };
 
-    // 콘텐츠 스크립트 주입 함수
-    const injectContentScript = async (tabId: number) => {
-        console.log("Injecting content script into tab:", tabId);
-        try {
-            // CSS 주입
-            await chrome.scripting.insertCSS({
-                target: { tabId },
-                files: ["styles/magnifier.css"],
-            });
-
-            // 콘텐츠 스크립트 주입
-            await chrome.scripting.executeScript({
-                target: { tabId },
-                files: ["js/content.js"],
-            });
-
-            console.log("Content script injected successfully");
-
-            // 스크립트가 로드될 시간을 주기 위해 잠시 대기
-            await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (error) {
-            console.error("Error injecting content script:", error);
-        }
-    };
-
-    // 스크린샷 캡처 함수
-    const captureVisibleTab = async (windowId: number): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            chrome.tabs.captureVisibleTab(
-                windowId,
-                { format: "png" },
-                (screenshotUrl) => {
-                    if (chrome.runtime.lastError) {
-                        console.error(
-                            "Error capturing screenshot:",
-                            chrome.runtime.lastError,
-                        );
-                        reject(chrome.runtime.lastError);
-                    } else if (!screenshotUrl) {
-                        console.error("Failed to capture screenshot");
-                        reject(new Error("Failed to capture screenshot"));
-                    } else {
-                        console.log("Screenshot captured successfully");
-                        resolve(screenshotUrl);
-                    }
-                },
-            );
-        });
+    const handleFontFamilyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setFontFamily(value);
+        // 여기서 실행할 글씨체 URL과 이름을 변경
+        executeFontScript(
+            `chrome-extension://jeppkpjgeheckphiogogbffdenhlkclh/assets/fonts/${value}.woff2`,
+            value,
+        );
     };
 
     return (
@@ -368,13 +249,29 @@ export const SidePanel: React.FC = () => {
                             executeScript(scrollToBottomPosition)
                         }
                     />
-                    <Button onClick={toggleMagnifier}>
-                        {isMagnifierActive
-                            ? "돋보기 비활성화"
-                            : "돋보기 활성화"}
-                    </Button>
+                    <RangeLabel htmlFor="font-weight-range">
+                        글씨 두께: {fontWeight}
+                    </RangeLabel>
+                    <RangeInput
+                        id="font-weight-range"
+                        type="range"
+                        min={100}
+                        max={900}
+                        step={100}
+                        value={fontWeight}
+                        onChange={handleFontWeightChange}
+                    />
+
+                    <RangeLabel htmlFor="font-family">
+                        글씨체: {fontFamily}
+                    </RangeLabel>
+                    <RangeInput
+                        id="font-family"
+                        type="text"
+                        value={fontFamily}
+                        onChange={handleFontFamilyChange}
+                    />
                 </Card>
-                <Options />
             </Content>
         </SidePanelWrapper>
     );

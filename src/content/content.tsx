@@ -1,90 +1,40 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import Magnifier from "@src/components/Magnifier";
+// content.js
 
-let magnifierContainer: HTMLDivElement | null = null;
-let magnifierRoot: ReturnType<typeof createRoot> | null = null;
+console.log("content.js 실행됨");
 
-interface Message {
-    type: "ACTIVATE_MAGNIFIER" | "DEACTIVATE_MAGNIFIER";
-    settings?: {
-        magnifierStrength: number;
-        magnifierSize: number;
-        magnifierShape: "circle" | "square";
-        magnifierAA: boolean;
-        magnifierCM: boolean;
-        osFactor: number;
-        escLimit: boolean;
-    };
-    screenshotUrl?: string;
+// 새로운 버튼 생성
+const button = document.createElement("button");
+button.textContent = "내 버튼";
+button.style.width = "200px"; // 버튼 크기
+button.style.height = "50px";
+button.style.padding = "10px";
+button.style.backgroundColor = "#007bff";
+button.style.color = "#fff";
+button.style.border = "none";
+button.style.borderRadius = "5px";
+button.style.cursor = "pointer";
+button.style.zIndex = "10000"; // 위에 표시
+
+// 클릭 이벤트 추가: 기존 버튼 클릭 트리거
+button.addEventListener("click", () => {
+    // 기존 '구매하기' 버튼 찾기
+    const existingButton = document.querySelector("#btnPay") as HTMLElement;
+    if (existingButton) {
+        existingButton.click(); // 기존 버튼 클릭 시 동작을 재현
+    } else {
+        console.log("기존 버튼을 찾을 수 없습니다.");
+    }
+});
+
+// 특정 클래스명을 가진 요소를 찾음
+const targetElement = document.querySelector(".cart-title-new-layout-wrapper");
+
+if (targetElement) {
+    // 해당 요소가 있으면 그 안에 버튼을 추가
+    targetElement.appendChild(button);
+    console.log("버튼이 cart-title-new-layout-wrapper 안에 추가되었습니다.");
+} else {
+    console.log(
+        "cart-title-new-layout-wrapper 클래스를 가진 요소를 찾을 수 없습니다.",
+    );
 }
-
-// 콘텐츠 스크립트가 로드되었음을 알리는 메시지 전송
-console.log("Content script loaded");
-chrome.runtime.sendMessage({ type: "CONTENT_SCRIPT_LOADED" });
-
-// 메시지 리스너 등록
-chrome.runtime.onMessage.addListener(
-    (message: Message, sender, sendResponse) => {
-        console.log("Message received in content script:", message);
-
-        if (message.type === "ACTIVATE_MAGNIFIER" && message.settings) {
-            console.log(
-                "Activating magnifier with settings:",
-                message.settings,
-            );
-            // 돋보기 활성화
-            if (!magnifierContainer) {
-                // 컨테이너가 없는 경우에만 새로 생성
-                const container = document.createElement("div");
-                container.id = "magnifier-container";
-                document.body.appendChild(container);
-
-                const root = createRoot(container);
-                root.render(
-                    <Magnifier
-                        imageUrl={message.screenshotUrl || ""}
-                        zoom={
-                            message.settings.magnifierStrength *
-                            (message.settings.osFactor / 100)
-                        }
-                        size={message.settings.magnifierSize}
-                        shape={
-                            message.settings.magnifierShape === "circle"
-                                ? 100
-                                : 0
-                        }
-                        aa={message.settings.magnifierAA}
-                        escOnly={message.settings.escLimit}
-                        onClose={() => {
-                            if (magnifierRoot) {
-                                magnifierRoot.unmount();
-                                magnifierRoot = null;
-                            }
-                            if (magnifierContainer) {
-                                magnifierContainer.remove();
-                                magnifierContainer = null;
-                            }
-                        }}
-                    />,
-                );
-                magnifierContainer = container;
-                magnifierRoot = root;
-            }
-            sendResponse({ success: true });
-        } else if (message.type === "DEACTIVATE_MAGNIFIER") {
-            console.log("Deactivating magnifier");
-            // 돋보기 비활성화
-            if (magnifierRoot) {
-                magnifierRoot.unmount();
-                magnifierRoot = null;
-            }
-            if (magnifierContainer) {
-                magnifierContainer.remove();
-                magnifierContainer = null;
-            }
-            sendResponse({ success: true });
-        }
-        return true; // 비동기 응답을 위해 true 반환
-    },
-);

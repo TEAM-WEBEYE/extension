@@ -1,117 +1,108 @@
-// side panel 설정
-chrome.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch((error) => console.error(error));
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    if (message.type === "ACTIVATE_MAGNIFIER") {
+        try {
+            const [tab] = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            if (!tab.id || !tab.windowId) throw new Error("No active tab");
 
-// 메시지 리스너 등록
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("Background received message:", message);
+            const settings = await chrome.storage.sync.get({
+                magnifierStrength: 2,
+                magnifierSize: 150,
+                magnifierShape: 100,
+                magnifierAA: true,
+                magnifierCM: false,
+                osFactor: 100,
+                escLimit: false,
+            });
 
-    if (message.type === "CONTENT_SCRIPT_LOADED") {
-        console.log("Content script loaded in tab:", sender.tab?.id);
-        sendResponse({ success: true });
-    } else if (message.type === "MAGNIFIER_CLOSED") {
-        console.log("Magnifier closed");
-        sendResponse({ success: true });
-    } else if (message.type === "DEACTIVATE_MAGNIFIER") {
-        // 현재 활성화된 탭에 메시지 전송
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const currentTab = tabs[0];
-            if (currentTab?.id) {
-                chrome.tabs.sendMessage(currentTab.id, {
-                    type: "DEACTIVATE_MAGNIFIER",
-                });
-            }
-        });
-        sendResponse({ success: true });
-    }
-    return true;
-});
+            const magnifierShapeValue =
+                settings.magnifierShape >= 50 ? "circle" : "square";
 
-chrome.action.onClicked.addListener(async (tab) => {
-    const defaultSettings = {
-        magnifierStrength: 2,
-        magnifierSize: 425,
-        magnifierAA: true,
-        magnifierCM: false,
-        magnifierShape: 100,
-        osFactor: 100,
-        escLimit: false,
-    };
+            // CSS & JS 주입
+            await chrome.scripting.insertCSS({
+                target: { tabId: tab.id },
+                files: ["styles/magnifier.css"],
+            });
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ["js/content.js"],
+            });
 
-    const settings = await new Promise<typeof defaultSettings>((resolve) => {
-        chrome.storage.sync.get(defaultSettings, resolve);
-    });
-
-    const isMagnifierTab = tab?.title?.startsWith("_Magnifying_Glass");
-
-    if (settings.magnifierCM) {
-        if (isMagnifierTab && tab.id) {
-            chrome.tabs.remove(tab.id);
-            return;
-        }
-
-        chrome.tabs.captureVisibleTab(
-            tab.windowId,
-            { format: "png" },
-            (screenshotUrl) => {
-                if (!screenshotUrl) return;
-
-                const viewTabUrl = chrome.runtime.getURL(
-                    `snapshot.html?id=${Date.now()}`,
-                );
-
-                chrome.tabs.create(
-                    { url: viewTabUrl, index: tab.index },
-                    (createdTab) => {
-                        if (!createdTab.id) return;
-
-                        const listener = (
-                            tabId: number,
-                            changeInfo: chrome.tabs.TabChangeInfo,
-                        ) => {
-                            if (
-                                tabId === createdTab.id &&
-                                changeInfo.status === "complete"
-                            ) {
-                                chrome.tabs.onUpdated.removeListener(listener);
-
-                                chrome.tabs.sendMessage(createdTab.id, {
-                                    type: "INIT_MAGNIFIER_VIEW",
-                                    screenshotUrl,
-                                    settings,
-                                });
+            // 캡처
+            const screenshotUrl = await new Promise<string>(
+                (resolve, reject) => {
+                    chrome.tabs.captureVisibleTab(
+                        tab.windowId!,
+                        { format: "png" },
+                        (url) => {
+                            if (chrome.runtime.lastError || !url) {
+                                reject(
+                                    chrome.runtime.lastError ||
+                                        new Error("Capture failed"),
+                                );
+                            } else {
+                                resolve(url);
                             }
-                        };
+                        },
+                    );
+                },
+            );
 
-                        chrome.tabs.onUpdated.addListener(listener);
-                    },
-                );
-            },
-        );
-    } else {
-        chrome.scripting.insertCSS({
-            target: { tabId: tab.id! },
-            files: ["styles/magnifier.css"],
-        });
+            // 메시지 전송
+            await chrome.tabs.sendMessage(tab.id, {
+                type: "ACTIVATE_MAGNIFIER",
+                settings: { ...settings, magnifierShape: magnifierShapeValue },
+                screenshotUrl,
+            });
 
-        chrome.scripting.executeScript({
-            target: { tabId: tab.id! },
-            files: ["scripts/inject.js"],
-        });
-
-        chrome.tabs.captureVisibleTab(
-            tab.windowId,
-            { format: "png" },
-            (screenshotUrl) => {
-                if (!screenshotUrl) return;
-
-                chrome.tabs.sendMessage(tab.id!, {
-                    type: "ACTIVATE_MAGNIFIER",
-                    screenshotUrl,
-                    settings,
-                });
-            },
-        );
+            sendResponse({ success: true });
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error("ACTIVATE_MAGNIFIER 실패:", error.message);
+                sendResponse({ success: false, error: error.message });
+            } else {
+                console.error("ACTIVATE_MAGNIFIER 알 수 없는 에러:", error);
+                sendResponse({ success: false, error: "Unknown error" });
+            }
+        }
+        return true; // 비동기 처리 유지
     }
+
+    if (message.type === "DEACTIVATE_MAGNIFIER") {
+        try {
+            const [tab] = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            if (!tab.id) throw new Error("No active tab");
+
+            await chrome.tabs.sendMessage(tab.id, {
+                type: "DEACTIVATE_MAGNIFIER",
+            });
+
+            sendResponse({ success: true });
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error("DEACTIVATE_MAGNIFIER 실패:", error.message);
+                sendResponse({ success: false, error: error.message });
+            } else {
+                console.error("DEACTIVATE_MAGNIFIER 알 수 없는 에러:", error);
+                sendResponse({ success: false, error: "Unknown error" });
+            }
+        }
+        return true; // 비동기 처리 유지
+    }
+
+    if (message.type === "sidePanelMounted") {
+        console.log("사이드 패널이 마운트되었습니다.");
+        sendResponse({ success: true });
+        return true;
+    }
+
+    // 알 수 없는 메시지 처리
+    console.warn("알 수 없는 메시지 타입:", message);
+    sendResponse({ success: false, error: "Unknown message type" });
+    return true;
 });
