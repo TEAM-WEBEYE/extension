@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Popup } from "../component";
+import { Popup } from "../getProduct";
 import renderer from "react-test-renderer";
 
 it("component renders", () => {

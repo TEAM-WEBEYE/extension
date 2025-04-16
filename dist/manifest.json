@@ -11,6 +11,13 @@
         },
         "default_popup": "popup.html"
     },
+    "content_scripts": [
+        {
+            "matches": ["https://*.coupang.com/*"],
+            "js": ["js/contentScript.js"],
+            "run_at": "document_idle"
+        }
+    ],
     "background": {
         "service_worker": "js/backgroundPage.js"
     },
