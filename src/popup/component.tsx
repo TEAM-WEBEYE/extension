@@ -36,7 +36,6 @@ const Component = () => {
             );
         });
     };
-
     return (
         <div className="w-72 p-4 bg-white rounded-lg shadow-lg">
             <h1 className="text-xl font-semibold mb-3 text-gray-800">
@@ -45,11 +44,10 @@ const Component = () => {
 
             <button
                 onClick={getProductInfo}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm mb-2"
             >
                 상품 정보 읽어줘!
             </button>
-
             {productInfo && (
                 <div className="mt-4 text-sm text-gray-700">
                     <p>
