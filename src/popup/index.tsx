@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import browser from "webextension-polyfill";
-import Component from "./component";
+import GetProduct from "./getProduct";
 import "../css/app.css";
 
 browser.tabs
@@ -19,7 +19,12 @@ browser.tabs
         const container = document.getElementById("popup");
         if (container) {
             const root = createRoot(container);
-            root.render(<Component />);
+            root.render(
+                <div className="p-4 w-80">
+                    <h1 className="text-lg font-bold mb-4">VOIM</h1>
+                    <GetProduct />
+                </div>,
+            );
         } else {
             console.error("popup이라는 id를 가진 요소가 존재하지 않아요!");
         }
