@@ -11,7 +11,6 @@ const getProduct = () => {
 
     const getProductInfo = () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            console.log("탭 목록:", tabs);
             if (!tabs[0]?.id) return;
 
             chrome.tabs.sendMessage(
