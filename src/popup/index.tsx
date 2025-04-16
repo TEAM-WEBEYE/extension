@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import browser from "webextension-polyfill";
 import GetProduct from "./getProduct";
 import "../css/app.css";
+import ControlFont from "./controlFont";
 
 browser.tabs
     .query({ active: true, currentWindow: true })
@@ -23,6 +24,7 @@ browser.tabs
                 <div className="p-4 w-80">
                     <h1 className="text-lg font-bold mb-4">VOIM</h1>
                     <GetProduct />
+                    <ControlFont />
                 </div>,
             );
         } else {

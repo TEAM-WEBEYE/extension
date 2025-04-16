@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "../css/app.css";
 
-const Component = () => {
+const getProduct = () => {
     const [productInfo, setProductInfo] = useState<{
         productId: string;
         productTitle: string;
@@ -11,6 +11,7 @@ const Component = () => {
 
     const getProductInfo = () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            console.log("탭 목록:", tabs);
             if (!tabs[0]?.id) return;
 
             chrome.tabs.sendMessage(
@@ -64,4 +65,4 @@ const Component = () => {
     );
 };
 
-export default Component;
+export default getProduct;
